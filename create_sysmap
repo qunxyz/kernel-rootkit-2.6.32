@@ -1,0 +1,62 @@
+#!/bin/bash
+
+SYSMAP_PATH=$1
+NAME=""
+PREFIX="prak_" #prak für Praktikum
+DEST="sysmap.h"
+
+echo Creating $DEST from $SYSMAP_PATH
+
+# Create first part of the header file. Overwrite if it already exists.
+if [ -f $DEST ]
+then
+	echo Overwriting $DEST since it already exists.
+	rm $DEST
+fi
+
+touch $DEST
+echo "#ifndef _SYSMAP_H" >> $DEST
+echo -e "#define _SYSMAP_H\n" >> $DEST
+
+if [ "$#" != "1" ]
+then
+	echo ERROR! Only one argument, path to system map, is needed.
+	rm $DEST
+	exit 1
+fi
+
+if [ -f $SYSMAP_PATH ]
+then
+	# Read each line in the file. Words seperated by spaces (IFS=' ')
+	# should be placed in the array (-ra) 'LINE' like so: 
+	# {ADDRESS, TYPE, NAME}	
+	while IFS=' ' read -ra LINE
+	do
+		# Some symbols names have '.' in them. Replace them with '_'.
+		# The trick is, if the IFS is assigned a new value,
+		# then $* seperates by this new value.
+		NAME=${LINE[2]}
+		IFS='.'
+		set $NAME
+		IFS='_'
+		NAME="$*"
+
+		# Write the pointer initialisation to the header file.
+		# Use $PREFIX to avoid multiple definitions.
+		case ${LINE[1]} in
+			D | R | T ) echo -e "void* $PREFIX$NAME = (void*)0x${LINE[0]};\n" >> $DEST
+		esac
+
+		# We are done using the IFS.
+		unset IFS
+	done < "$SYSMAP_PATH"
+else
+	echo ERROR! $SYSMAP_PATH is not a file! Aborting.
+	rm $DEST
+	exit 1
+fi
+
+# Finish off header file.
+echo "#endif" >> $DEST
+echo Writing $DEST was a success!
+exit 0	
